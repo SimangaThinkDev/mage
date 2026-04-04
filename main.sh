@@ -46,6 +46,19 @@ chmod +x "$DEST"
 echo "==> Creating terminal command (may ask for sudo)..."
 sudo ln -sf "$DEST" "$BIN_LINK"
 
+echo "==> Extracting icon..."
+TMP_DIR="$(mktemp -d)"
+ICON_REF="utilities-terminal"
+(cd "$TMP_DIR" && "$DEST" --appimage-extract '*.png' > /dev/null 2>&1 || "$DEST" --appimage-extract '*.svg' > /dev/null 2>&1 || true)
+ICON_SRC="$(find "$TMP_DIR/squashfs-root" -maxdepth 3 \( -name "*.png" -o -name "*.svg" \) 2>/dev/null | head -n 1)"
+if [ -n "$ICON_SRC" ]; then
+    EXT="${ICON_SRC##*.}"
+    mkdir -p "$HOME/.local/share/icons"
+    cp "$ICON_SRC" "$HOME/.local/share/icons/$APP_NAME.$EXT"
+    ICON_REF="$HOME/.local/share/icons/$APP_NAME.$EXT"
+fi
+rm -rf "$TMP_DIR"
+
 echo "==> Creating desktop entry..."
 mkdir -p "$(dirname "$DESKTOP_FILE")"
 
@@ -53,7 +66,7 @@ cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
 Name=$APP_NAME
 Exec=$DEST
-Icon=utilities-terminal
+Icon=$ICON_REF
 Type=Application
 Categories=Utility;
 EOF
