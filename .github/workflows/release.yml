@@ -11,11 +11,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Sync main.sh into deb binary
-        run: cp main.sh deb/usr/local/bin/mage && chmod +x deb/usr/local/bin/mage
-
       - name: Build .deb
-        run: dpkg-deb --build deb mage.deb
+        run: |
+          mkdir -p deb/DEBIAN deb/usr/local/bin
+          cp main.sh deb/usr/local/bin/mage
+          chmod +x deb/usr/local/bin/mage
+          cat > deb/DEBIAN/control <<EOF
+          Package: mage
+          Version: ${GITHUB_REF_NAME#v}
+          Section: utils
+          Priority: optional
+          Architecture: all
+          Maintainer: SimangaThinkDev
+          Description: Installs any .AppImage with a terminal command and desktop launcher entry
+          EOF
+          dpkg-deb --build deb mage.deb
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
