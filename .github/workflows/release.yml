@@ -1,0 +1,23 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync main.sh into deb binary
+        run: cp main.sh deb/usr/local/bin/mage && chmod +x deb/usr/local/bin/mage
+
+      - name: Build .deb
+        run: dpkg-deb --build deb mage.deb
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: mage.deb
