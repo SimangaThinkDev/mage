@@ -1,83 +1,111 @@
 #!/bin/bash
 
+# Mage - Universal Linux App Installer
+# Version: 1.1.0
+
 set -e
 
+# Find application directory
+if [ -L "$0" ]; then
+    SCRIPT_PATH=$(readlink -f "$0")
+else
+    SCRIPT_PATH="$0"
+fi
+APP_DIR=$(dirname "$SCRIPT_PATH")
+
+# Determine where libraries are
+if [ -d "$APP_DIR/lib" ]; then
+    # Running from source
+    LIB_DIR="$APP_DIR/lib"
+elif [ -d "/usr/local/lib/mage" ]; then
+    # Running from installed package
+    LIB_DIR="/usr/local/lib/mage"
+else
+    echo "ERROR: Could not find Mage library files."
+    exit 1
+fi
+
+# Source libraries
+# shellcheck source=lib/common.sh
+source "$LIB_DIR/common.sh"
+# shellcheck source=lib/registry.sh
+source "$LIB_DIR/registry.sh"
+# shellcheck source=lib/desktop.sh
+source "$LIB_DIR/desktop.sh"
+# shellcheck source=lib/install_appimage.sh
+source "$LIB_DIR/install_appimage.sh"
+# shellcheck source=lib/install_tar.sh
+source "$LIB_DIR/install_tar.sh"
+# shellcheck source=lib/uninstall.sh
+source "$LIB_DIR/uninstall.sh"
+
 usage() {
-    echo "Usage: mage --file <path-to.AppImage>"
+    echo "Mage v1.1.0 - Universal Linux App Installer"
     echo ""
-    echo "Options:"
-    echo "  --file <path>   Path to the .AppImage file to install"
-    echo "  -h, --help      Show this help message"
+    echo "Usage:"
+    echo "  mage --file <path> [options]    Install an AppImage or Tar archive"
+    echo "  mage -l, --list                 List all applications installed with mage"
+    echo "  mage --uninstall <name>         Uninstall an application"
+    echo "  mage -v, --version              Show version"
+    echo "  mage -h, --help                 Show this help message"
+    echo ""
+    echo "Options for installation:"
+    echo "  --exec <path>                   Specify the relative path to the executable (tar only)"
+    echo ""
 }
 
-case "$1" in
-    -h|--help) usage; exit 0 ;;
-    --file) SRC="$2" ;;
-    *) usage; exit 1 ;;
-esac
+# Ensure directories and initialize registry
+ensure_dirs
+registry_init
+
+# Argument parsing
+SRC=""
+CUSTOM_EXEC=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -v|--version)
+            echo "mage v1.1.0"
+            exit 0
+            ;;
+        --file)
+            SRC="$2"
+            shift 2
+            ;;
+        --exec)
+            CUSTOM_EXEC="$2"
+            shift 2
+            ;;
+        -l|--list)
+            registry_list
+            exit 0
+            ;;
+        --uninstall)
+            uninstall_app "$2"
+            exit 0
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+done
 
 if [ -z "$SRC" ]; then
     usage
     exit 1
 fi
 
-SRC="$2"
-APP_NAME="$(basename "$SRC" .AppImage | tr '[:upper:]' '[:lower:]')"
-DEST_DIR="$HOME/Applications"
-DEST="$DEST_DIR/$APP_NAME.AppImage"
-
-DESKTOP_FILE="$HOME/.local/share/applications/$APP_NAME.desktop"
-BIN_LINK="/usr/local/bin/$APP_NAME"
-
-echo "==> Creating Applications directory..."
-mkdir -p "$DEST_DIR"
-
-echo "==> Moving AppImage..."
-if [ -f "$SRC" ]; then
-    cp "$SRC" "$DEST"
+# Detect file type and install
+if [[ "$SRC" == *.AppImage ]]; then
+    install_appimage "$SRC"
+elif [[ "$SRC" == *.tar* ]] || [[ "$SRC" == *.tgz ]]; then
+    install_tar "$SRC" "$CUSTOM_EXEC"
 else
-    echo "ERROR: $SRC not found"
+    log_error "Unsupported file type: $(basename "$SRC")"
     exit 1
 fi
-
-echo "==> Making AppImage executable..."
-chmod +x "$DEST"
-
-echo "==> Creating terminal command (may ask for sudo)..."
-sudo ln -sf "$DEST" "$BIN_LINK"
-
-echo "==> Extracting icon..."
-TMP_DIR="$(mktemp -d)"
-ICON_REF="utilities-terminal"
-(cd "$TMP_DIR" && "$DEST" --appimage-extract '*.png' > /dev/null 2>&1 || "$DEST" --appimage-extract '*.svg' > /dev/null 2>&1 || true)
-ICON_SRC="$(find "$TMP_DIR/squashfs-root" -maxdepth 3 \( -name "*.png" -o -name "*.svg" \) 2>/dev/null | head -n 1)"
-if [ -n "$ICON_SRC" ]; then
-    EXT="${ICON_SRC##*.}"
-    mkdir -p "$HOME/.local/share/icons"
-    cp "$ICON_SRC" "$HOME/.local/share/icons/$APP_NAME.$EXT"
-    ICON_REF="$HOME/.local/share/icons/$APP_NAME.$EXT"
-fi
-rm -rf "$TMP_DIR"
-
-echo "==> Creating desktop entry..."
-mkdir -p "$(dirname "$DESKTOP_FILE")"
-
-cat > "$DESKTOP_FILE" <<EOF
-[Desktop Entry]
-Name=$APP_NAME
-Exec=$DEST
-Icon=$ICON_REF
-Type=Application
-Categories=Utility;
-EOF
-
-chmod +x "$DESKTOP_FILE"
-
-echo "==> Updating desktop database..."
-update-desktop-database ~/.local/share/applications || true
-
-echo "✅ Done!"
-echo "You can now:"
-echo " - Run '$APP_NAME' in terminal"
-echo " - Find '$APP_NAME' in your app launcher"
-

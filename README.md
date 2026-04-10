@@ -1,8 +1,19 @@
 # mage
 
-Installs any `.AppImage` with a terminal command and desktop launcher entry.
+Installs `.AppImage` and `.tar` archives with a terminal command and desktop launcher entry.
 
-## Install
+`mage` keeps your `~/Applications` directory organized and automatically creates CLI symlinks and desktop launcher entries for standalone Linux applications.
+
+## Features
+
+- **AppImage Support**: Standard AppImage installation with icon extraction.
+- **Tar Support**: Supports `.tar.gz`, `.tar.xz`, `.tar.bz2`, and `.tar`.
+- **Heuristic Detection**: Automatically finds the main executable and icon in extracted archives.
+- **App Registry**: Keeps track of all installed applications in a central registry.
+- **List & Uninstall**: Easily list installed apps or remove them completely.
+- **Modular Design**: Clean, bash-based modular architecture.
+
+## Installation
 
 ```bash
 curl -LO https://github.com/SimangaThinkDev/mage/releases/latest/download/mage.deb
@@ -11,27 +22,46 @@ sudo apt install ./mage.deb
 
 ## Usage
 
+### Install an AppImage
 ```bash
 mage --file path/to/app.AppImage
 ```
 
-This will:
-- Copy the AppImage to `~/Applications/`
-- Create a terminal command named after the file
-- Add an entry to your app launcher
+### Install a Tar Archive
+```bash
+mage --file path/to/app.tar.gz
+```
+
+*Note: If mage cannot find the executable, you can specify it manually:*
+```bash
+mage --file path/to/app.tar.gz --exec bin/app-binary
+```
+
+### List Installed Apps
+```bash
+mage --list
+```
+
+### Uninstall an App
+```bash
+mage --uninstall <name>
+```
 
 ## Options
 
-```
---file <path>   Path to the .AppImage file to install
--h, --help      Show this help message
-```
+| Option | Description |
+|--------|-------------|
+| `--file <path>` | Path to the .AppImage or .tar file to install |
+| `--exec <path>` | Relative path to the executable inside the archive (tar only) |
+| `-l, --list` | List all applications installed with mage |
+| `--uninstall <name>` | Uninstall an application by name |
+| `-h, --help` | Show help message |
+| `-v, --version` | Show version |
 
-## Release a new version
+## Registry
 
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
+`mage` tracks installations in `~/.local/share/mage/registry.yml`. This file stores metadata about each installed app, including its original source and where it was installed.
 
-GitHub Actions will build and publish `mage.deb` automatically.
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

@@ -13,8 +13,9 @@ jobs:
 
       - name: Build .deb
         run: |
-          mkdir -p deb/DEBIAN deb/usr/local/bin
+          mkdir -p deb/DEBIAN deb/usr/local/bin deb/usr/local/lib/mage
           cp main.sh deb/usr/local/bin/mage
+          cp lib/*.sh deb/usr/local/lib/mage/
           chmod +x deb/usr/local/bin/mage
           cat > deb/DEBIAN/control <<EOF
           Package: mage
@@ -23,7 +24,8 @@ jobs:
           Priority: optional
           Architecture: all
           Maintainer: SimangaThinkDev
-          Description: Installs any .AppImage with a terminal command and desktop launcher entry
+          Depends: tar, coreutils
+          Description: Installs .AppImage and .tar archives with a terminal command and desktop entry
           EOF
           dpkg-deb --build deb mage.deb
 
